@@ -24,32 +24,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare real photography
+      - name: Prepare publication assets
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p assets
+          mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' -o assets/hero-real.jpg
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/15812410/pexels-photo-15812410.jpeg?cs=srgb&fm=jpg' -o assets/transporte-real.jpg
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/7195123/pexels-photo-7195123.jpeg?cs=srgb&fm=jpg' -o assets/saude-real.jpg
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' -o assets/defesa-civil-real.jpg
-
-          # Reconstroi e valida byte a byte a foto aprovada do CCO.
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
-
-          # Educação: usa somente o arquivo aprovado já versionado no repositório.
-          cp assets/educacao-presenca-aprovada.jpg assets/educacao-final.jpg
-          test -s assets/educacao-final.jpg
-          file assets/educacao-final.jpg | grep -q 'JPEG image data'
-
-          test -s assets/hero-real.jpg
-          test -s assets/transporte-real.jpg
-          test -s assets/saude-real.jpg
-          test -s assets/defesa-civil-real.jpg
-          file assets/cco-final.jpg | grep -q 'JPEG image data'
-          file assets/educacao-final.jpg assets/*-real.jpg assets/cco-final.jpg
+          cat assets/educacao-v3-data/*.txt | base64 -d > assets/educacao-final-v3.jpg
+          echo 'aae850f7871e1e5caf0954846ff92d49b57311cc8049bfa68146955cd60678db  assets/educacao-final-v3.jpg' | sha256sum -c -
+          python3 scripts/generate_datasheets.py
+          test -s datasheets/cco-seguranca.pdf
+          test -s datasheets/educacao-escolas.pdf
+          test -s datasheets/transporte-publico.pdf
+          test -s datasheets/saude-digital.pdf
+          test -s datasheets/telegestao-defesa-civil.pdf
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
