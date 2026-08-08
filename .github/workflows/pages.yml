@@ -36,16 +36,15 @@ jobs:
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/7195123/pexels-photo-7195123.jpeg?cs=srgb&fm=jpg' -o assets/saude-real.jpg
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' -o assets/defesa-civil-real.jpg
 
-          # Reconstroi a foto aprovada do CCO localmente no runner para evitar JPEG truncado no navegador.
+          # Reconstroi e valida byte a byte a foto aprovada do CCO.
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
+          echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
 
           test -s assets/hero-real.jpg
           test -s assets/educacao-real.jpg
           test -s assets/transporte-real.jpg
           test -s assets/saude-real.jpg
           test -s assets/defesa-civil-real.jpg
-          test -s assets/cco-final.jpg
-          test "$(wc -c < assets/cco-final.jpg)" -gt 19000
           file assets/cco-final.jpg | grep -q 'JPEG image data'
           file assets/*-real.jpg assets/cco-final.jpg
 
