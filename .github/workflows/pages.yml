@@ -23,6 +23,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Prepare real photography
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' -o assets/hero-real.jpg
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/5621944/pexels-photo-5621944.jpeg?cs=srgb&fm=jpg' -o assets/educacao-real.jpg
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/15812410/pexels-photo-15812410.jpeg?cs=srgb&fm=jpg' -o assets/transporte-real.jpg
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/7195123/pexels-photo-7195123.jpeg?cs=srgb&fm=jpg' -o assets/saude-real.jpg
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' -o assets/defesa-civil-real.jpg
+          test -s assets/hero-real.jpg
+          test -s assets/educacao-real.jpg
+          test -s assets/transporte-real.jpg
+          test -s assets/saude-real.jpg
+          test -s assets/defesa-civil-real.jpg
+          file assets/*-real.jpg
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload site
