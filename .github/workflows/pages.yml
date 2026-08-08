@@ -24,26 +24,68 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare publication assets
+      - name: Prepare local media
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
-          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' -o assets/hero-real.jpg
-          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/15812410/pexels-photo-15812410.jpeg?cs=srgb&fm=jpg' -o assets/transporte-real.jpg
-          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/7195123/pexels-photo-7195123.jpeg?cs=srgb&fm=jpg' -o assets/saude-real.jpg
-          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' -o assets/defesa-civil-real.jpg
+
+          # Poster do hero. O navegador nunca acessa o provedor externo: o arquivo entra no artefato do Pages.
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
+            'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
+            -o assets/hero-real.jpg
+
+          # Loop cinematográfico de São Paulo. Baixa no build e publica localmente.
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
+            'https://videos.pexels.com/video-files/14534442/14534442-uhd_3840_2160_30fps.mp4' \
+            -o /tmp/hero-source.mp4
+          if command -v ffmpeg >/dev/null 2>&1; then
+            ffmpeg -hide_banner -loglevel error -y -ss 0 -t 12 -i /tmp/hero-source.mp4 \
+              -vf "scale=1280:-2,fps=24" -an -c:v libx264 -preset veryfast -crf 27 \
+              -movflags +faststart assets/hero-loop.mp4
+          else
+            cp /tmp/hero-source.mp4 assets/hero-loop.mp4
+          fi
+
+          # Transporte: nova fotografia real de ônibus em São Paulo.
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
+            'https://images.pexels.com/photos/3190370/pexels-photo-3190370.jpeg?cs=srgb&dl=pexels-hikaique-3190370.jpg&fm=jpg' \
+            -o assets/transporte-v2.jpg
+
+          # Fotografias reais dos demais módulos publicadas localmente.
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
+            'https://images.pexels.com/photos/7195123/pexels-photo-7195123.jpeg?cs=srgb&fm=jpg' \
+            -o assets/saude-real.jpg
+          curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
+            'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' \
+            -o assets/defesa-civil-real.jpg
+
+          # CCO e Educação são reconstruídos e validados byte a byte.
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
           cat assets/educacao-v3-data/00.txt assets/educacao-v3-data/01.txt assets/educacao-v3-data/02.txt assets/educacao-v3-data/03a.txt assets/educacao-v3-data/03b.txt assets/educacao-v3-data/03c.txt assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt | base64 -d > assets/educacao-final-v3.jpg
           echo 'aae850f7871e1e5caf0954846ff92d49b57311cc8049bfa68146955cd60678db  assets/educacao-final-v3.jpg' | sha256sum -c -
-          python3 scripts/generate_datasheets.py
+
+          # PDFs premium: geração no build com os assets finais já preparados.
+          python3 -m pip install --disable-pip-version-check --quiet reportlab pillow beautifulsoup4
+          python3 scripts/site_upgrade.py
+          python3 scripts/build_premium_pdfs.py
+
+          # Validações do artefato final.
+          test -s assets/hero-real.jpg
+          test -s assets/hero-loop.mp4
+          test "$(stat -c%s assets/hero-loop.mp4)" -gt 300000
+          test -s assets/transporte-v2.jpg
+          file assets/hero-loop.mp4 | grep -Eiq 'ISO Media|MP4|MPEG'
+          file assets/transporte-v2.jpg | grep -qi 'JPEG image data'
+          test -s URBAN-BRAIN-Apresentacao-Executiva.pdf
           test -s datasheets/cco-seguranca.pdf
           test -s datasheets/educacao-escolas.pdf
           test -s datasheets/transporte-publico.pdf
           test -s datasheets/saude-digital.pdf
           test -s datasheets/telegestao-defesa-civil.pdf
+          ! grep -R -Eiq 'pexels\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos assets/styles.css assets/script.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
