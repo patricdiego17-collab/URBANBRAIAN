@@ -21,3 +21,13 @@
 .footer .brand-mark{width:196px!important;height:60px!important}
 @media(max-width:860px){.brand-mark{width:180px!important;height:56px!important}}
 @media(max-width:680px){.brand-mark{width:158px!important;height:50px!important}.header-row{height:72px!important}}
+
+/* Bloqueia imagens externas antigas; o script aplica somente assets locais. */
+#modulos .modules-grid .card .media,
+.page-photo{
+  background-image:none!important;
+  background-color:#0b1727!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-size:cover!important;
+}
