@@ -21,7 +21,7 @@ if(heroVideo) heroVideo.remove();
 
 const homeAssets=[
   'assets/cco-final.jpg',
-  'assets/educacao-real.jpg',
+  'assets/educacao-presenca-aprovada.jpg',
   'assets/transporte-real.jpg',
   'assets/saude-real.jpg',
   'assets/defesa-civil-real.jpg'
@@ -32,7 +32,7 @@ document.querySelectorAll('#modulos .modules-grid .card .media').forEach((el,i)=
 
 const pageAssets={
   'cco-seguranca.html':'../assets/cco-final.jpg',
-  'educacao-escolas.html':'../assets/educacao-real.jpg',
+  'educacao-escolas.html':'../assets/educacao-presenca-aprovada.jpg',
   'transporte-publico.html':'../assets/transporte-real.jpg',
   'saude-digital.html':'../assets/saude-real.jpg',
   'telegestao-defesa-civil.html':'../assets/defesa-civil-real.jpg'
