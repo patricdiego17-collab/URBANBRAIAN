@@ -36,7 +36,7 @@ jobs:
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" 'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' -o assets/defesa-civil-real.jpg
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
-          cat assets/educacao-v3-data/*.txt | base64 -d > assets/educacao-final-v3.jpg
+          cat assets/educacao-v3-data/00.txt assets/educacao-v3-data/01.txt assets/educacao-v3-data/02.txt assets/educacao-v3-data/03a.txt assets/educacao-v3-data/03b.txt assets/educacao-v3-data/03c.txt assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt | base64 -d > assets/educacao-final-v3.jpg
           echo 'aae850f7871e1e5caf0954846ff92d49b57311cc8049bfa68146955cd60678db  assets/educacao-final-v3.jpg' | sha256sum -c -
           python3 scripts/generate_datasheets.py
           test -s datasheets/cco-seguranca.pdf
