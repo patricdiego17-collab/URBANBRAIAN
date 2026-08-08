@@ -3,6 +3,7 @@ menu?.addEventListener('click',()=>{mobile.classList.toggle('open');menu.setAttr
 mbtn?.addEventListener('click',e=>{e.preventDefault();mods.classList.toggle('open')});
 document.addEventListener('click',e=>{if(mods&&!mods.contains(e.target))mods.classList.remove('open')});
 mtoggle?.addEventListener('click',()=>mtoggle.parentElement.classList.toggle('open'));
+document.querySelector('.hero-note')?.remove();
 const data={
 cad:['Central de Despacho (CAD)','Mapa operacional, triagem, prioridades, despacho de equipes e rastreabilidade completa do atendimento.'],
 muralha:['Muralha Inteligente','Passagens LPR/OCR, fatos, regras de alerta, pesquisas, correlações e apoio a abordagens.'],
