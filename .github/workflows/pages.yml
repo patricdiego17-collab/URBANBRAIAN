@@ -41,8 +41,8 @@ jobs:
             'https://videos.pexels.com/video-files/14534442/14534442-uhd_3840_2160_30fps.mp4' \
             -o /tmp/hero-source.mp4
           if command -v ffmpeg >/dev/null 2>&1; then
-            ffmpeg -hide_banner -loglevel error -y -ss 0 -t 12 -i /tmp/hero-source.mp4 \
-              -vf "scale=1280:-2,fps=24" -an -c:v libx264 -preset veryfast -crf 27 \
+            ffmpeg -hide_banner -loglevel error -y -ss 0 -t 9 -i /tmp/hero-source.mp4 \
+              -vf "scale=960:-2,fps=20" -an -c:v libx264 -preset veryfast -crf 32 -pix_fmt yuv420p \
               -movflags +faststart assets/hero-loop.mp4
           else
             cp /tmp/hero-source.mp4 assets/hero-loop.mp4
@@ -69,6 +69,15 @@ jobs:
 
           # PDFs premium: geração no build com os assets finais já preparados.
           python3 -m pip install --disable-pip-version-check --quiet reportlab pillow beautifulsoup4
+          python3 - <<'PYIMG'
+          from PIL import Image
+          from pathlib import Path
+          for name in ['hero-real.jpg','transporte-v2.jpg','saude-real.jpg','defesa-civil-real.jpg']:
+              p=Path('assets')/name
+              im=Image.open(p).convert('RGB')
+              im.thumbnail((1600,1200),Image.LANCZOS)
+              im.save(p,'JPEG',quality=82,optimize=True,progressive=False)
+          PYIMG
           python3 scripts/site_upgrade.py
           python3 scripts/build_premium_pdfs.py
 
