@@ -22,7 +22,7 @@
 @media(max-width:860px){.brand-mark{width:180px!important;height:56px!important}}
 @media(max-width:680px){.brand-mark{width:158px!important;height:50px!important}.header-row{height:72px!important}}
 
-/* Fotos reais locais: bloqueia URLs externas antigas e usa somente assets publicados no Pages. */
+/* Fotos reais locais: usa somente assets publicados no Pages. */
 #modulos .modules-grid .card .media,
 .page-photo{
   background-color:#0b1727!important;
@@ -30,7 +30,7 @@
   background-position:center!important;
   background-size:cover!important;
 }
-#modulos .modules-grid .card:nth-child(1) .media{background-image:url('cco-monitoramento-urbano.jpg')!important}
+#modulos .modules-grid .card:nth-child(1) .media{background-image:url('cco-monitoramento-aprovado-v2.jpg')!important}
 #modulos .modules-grid .card:nth-child(2) .media{background-image:url('educacao-real.jpg')!important}
 #modulos .modules-grid .card:nth-child(3) .media{background-image:url('transporte-real.jpg')!important}
 #modulos .modules-grid .card:nth-child(4) .media{background-image:url('saude-real.jpg')!important}
