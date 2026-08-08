@@ -83,6 +83,14 @@ jobs:
               im.save(p,'JPEG',quality=82,optimize=True,progressive=False)
           PYIMG
           python3 scripts/site_upgrade.py
+          python3 - <<'PYPDF'
+          from pathlib import Path
+          p=Path('scripts/build_premium_pdfs.py')
+          s=p.read_text(encoding='utf-8')
+          old="im=Image.open(p);iw,ih=im.size;s=max(w/iw,h/ih);nw,nh=iw*s,ih*s;c.drawImage(ImageReader(im),x-(nw-w)/2,y-(nh-h)/2,nw,nh)"
+          new="im=Image.open(p);iw,ih=im.size;s=max(w/iw,h/ih);nw,nh=iw*s,ih*s\n  c.saveState();q=c.beginPath();q.rect(x,y,w,h);c.clipPath(q,stroke=0,fill=0);c.drawImage(ImageReader(im),x-(nw-w)/2,y-(nh-h)/2,nw,nh);c.restoreState()"
+          if old in s: p.write_text(s.replace(old,new),encoding='utf-8')
+          PYPDF
           python3 scripts/build_premium_pdfs.py
 
           # Validações do artefato final.
