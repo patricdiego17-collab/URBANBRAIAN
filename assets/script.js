@@ -20,7 +20,7 @@ const heroVideo=document.querySelector('.hero-media video');
 if(heroVideo) heroVideo.remove();
 
 const homeAssets=[
-  'assets/cco-monitoramento-urbano.jpg',
+  'assets/cco-monitoramento-aprovado-v2.jpg',
   'assets/educacao-real.jpg',
   'assets/transporte-real.jpg',
   'assets/saude-real.jpg',
@@ -31,7 +31,7 @@ document.querySelectorAll('#modulos .modules-grid .card .media').forEach((el,i)=
 });
 
 const pageAssets={
-  'cco-seguranca.html':'../assets/cco-monitoramento-urbano.jpg',
+  'cco-seguranca.html':'../assets/cco-monitoramento-aprovado-v2.jpg',
   'educacao-escolas.html':'../assets/educacao-real.jpg',
   'transporte-publico.html':'../assets/transporte-real.jpg',
   'saude-digital.html':'../assets/saude-real.jpg',
