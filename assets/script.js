@@ -13,13 +13,18 @@ bi:['BI operacional','Dashboards, KPIs, mapas e leitura executiva consolidada da
 };
 document.querySelectorAll('.feature').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.feature').forEach(x=>x.classList.remove('active'));b.classList.add('active');const d=data[b.dataset.feature];const t=document.querySelector('[data-ft]'),p=document.querySelector('[data-fp]');if(t&&p&&d){t.textContent=d[0];p.textContent=d[1]}}));
 
-/* Todas as mídias principais são locais para evitar dependência de rede no preview */
+/* Fotos reais publicadas junto com o GitHub Pages; sem chamadas externas no navegador. */
+const heroImg=document.querySelector('.hero-media img');
+if(heroImg) heroImg.src='assets/hero-real.jpg';
+const heroVideo=document.querySelector('.hero-media video');
+if(heroVideo) heroVideo.remove();
+
 const homeAssets=[
   'assets/cco-monitoramento-urbano.jpg',
-  'assets/educacao-presenca-facial.svg',
-  'assets/transporte-publico.svg',
-  'assets/saude-digital.svg',
-  'assets/defesa-civil.svg'
+  'assets/educacao-real.jpg',
+  'assets/transporte-real.jpg',
+  'assets/saude-real.jpg',
+  'assets/defesa-civil-real.jpg'
 ];
 document.querySelectorAll('#modulos .modules-grid .card .media').forEach((el,i)=>{
   if(homeAssets[i]) el.style.setProperty('background-image',`url('${homeAssets[i]}')`,'important');
@@ -27,10 +32,10 @@ document.querySelectorAll('#modulos .modules-grid .card .media').forEach((el,i)=
 
 const pageAssets={
   'cco-seguranca.html':'../assets/cco-monitoramento-urbano.jpg',
-  'educacao-escolas.html':'../assets/educacao-presenca-facial.svg',
-  'transporte-publico.html':'../assets/transporte-publico.svg',
-  'saude-digital.html':'../assets/saude-digital.svg',
-  'telegestao-defesa-civil.html':'../assets/defesa-civil.svg'
+  'educacao-escolas.html':'../assets/educacao-real.jpg',
+  'transporte-publico.html':'../assets/transporte-real.jpg',
+  'saude-digital.html':'../assets/saude-real.jpg',
+  'telegestao-defesa-civil.html':'../assets/defesa-civil-real.jpg'
 };
 const pageName=location.pathname.split('/').pop();
 const pagePhoto=document.querySelector('.page-photo');
