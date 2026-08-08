@@ -3,7 +3,6 @@ menu?.addEventListener('click',()=>{mobile.classList.toggle('open');menu.setAttr
 mbtn?.addEventListener('click',e=>{e.preventDefault();mods.classList.toggle('open')});
 document.addEventListener('click',e=>{if(mods&&!mods.contains(e.target))mods.classList.remove('open')});
 mtoggle?.addEventListener('click',()=>mtoggle.parentElement.classList.toggle('open'));
-document.querySelector('.hero-note')?.remove();
 const data={
 cad:['Central de Despacho (CAD)','Mapa operacional, triagem, prioridades, despacho de equipes e rastreabilidade completa do atendimento.'],
 muralha:['Muralha Inteligente','Passagens LPR/OCR, fatos, regras de alerta, pesquisas, correlações e apoio a abordagens.'],
@@ -14,3 +13,9 @@ bi:['BI operacional','Dashboards, KPIs, mapas e leitura executiva consolidada da
 };
 document.querySelectorAll('.feature').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.feature').forEach(x=>x.classList.remove('active'));b.classList.add('active');const d=data[b.dataset.feature];document.querySelector('[data-ft]').textContent=d[0];document.querySelector('[data-fp]').textContent=d[1]}));
 const v=document.querySelector('.hero-media video');if(v){v.addEventListener('canplay',()=>document.body.classList.add('video-ready'));v.addEventListener('error',()=>v.remove())}
+const ccoHome=document.querySelector('#modulos .modules-grid .card:first-child .media');
+if(ccoHome)ccoHome.style.backgroundImage="url('assets/cco-monitoramento-urbano.jpg')";
+if(location.pathname.endsWith('/modulos/cco-seguranca.html')){
+  const ccoPage=document.querySelector('.page-photo');
+  if(ccoPage)ccoPage.style.backgroundImage="url('../assets/cco-monitoramento-urbano.jpg')";
+}
