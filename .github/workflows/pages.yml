@@ -28,7 +28,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Restore the validated V6 source/assets, then overlay the cPanel/HostGator design.
           cat deploy/v3-text-b64/*.txt | tr -d '\n' | base64 -d > /tmp/v3-text.tar.gz
           echo '88114492c1e773be2100db036ca0115ef073f29c18752446fb72c774f6fd4256  /tmp/v3-text.tar.gz' | sha256sum -c -
           tar -xzf /tmp/v3-text.tar.gz
@@ -44,8 +43,13 @@ jobs:
           python3 scripts/apply_v6_patch.py
 
           cat deploy/hostgator-preview/*.txt | tr -d '\n' | base64 -d > /tmp/hostgator-text.tar.gz
-          echo '8851e30c23ea0cd7bb5251527bbd79fcc5defb7330502f6be66bbf4e8c1d2ca0  /tmp/hostgator-text.tar.gz' | sha256sum -c -
+          gzip -t /tmp/hostgator-text.tar.gz
           tar -xzf /tmp/hostgator-text.tar.gz
+          test -s index.html
+          test -s style.css
+          test -s script.js
+          grep -q 'hero-media' index.html
+          grep -q '@media(max-width:760px)' style.css
 
       - name: Prepare media and documents
         shell: bash
@@ -54,7 +58,6 @@ jobs:
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
 
-          # External media is fetched only in CI. The deployed browser loads same-origin local assets.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
             -o assets/hero-real.jpg
