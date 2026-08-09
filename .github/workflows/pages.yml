@@ -31,15 +31,16 @@ jobs:
           cat deploy/v3-text-b64/*.txt | tr -d '\n' | base64 -d > /tmp/v3-text.tar.gz
           echo '88114492c1e773be2100db036ca0115ef073f29c18752446fb72c774f6fd4256  /tmp/v3-text.tar.gz' | sha256sum -c -
           tar -xzf /tmp/v3-text.tar.gz
+          python3 scripts/apply_v4_patch.py
 
-      - name: Prepare local media
+      - name: Prepare local media and documents
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
 
-          # External providers are accessed only by the build runner. The public browser receives local files.
+          # External providers are accessed only by the build runner. Public pages receive same-origin local files.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
             -o assets/hero-real.jpg
@@ -65,16 +66,13 @@ jobs:
             'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' \
             -o assets/defesa-civil-real.jpg
 
-          # CCO and Education remain reconstructed from already-versioned approved asset chunks.
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt \
-              assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt \
-              | base64 -d > assets/cco-final.jpg
+              assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
 
           cat assets/educacao-v3-data/00.txt assets/educacao-v3-data/01.txt assets/educacao-v3-data/02.txt \
               assets/educacao-v3-data/03a.txt assets/educacao-v3-data/03b.txt assets/educacao-v3-data/03c.txt \
-              assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt \
-              | base64 -d > assets/educacao-final-v3.jpg
+              assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt | base64 -d > assets/educacao-final-v3.jpg
           echo 'aae850f7871e1e5caf0954846ff92d49b57311cc8049bfa68146955cd60678db  assets/educacao-final-v3.jpg' | sha256sum -c -
 
           python3 -m pip install --disable-pip-version-check --quiet reportlab pillow
@@ -88,6 +86,7 @@ jobs:
               im.save(p,'JPEG',quality=84,optimize=True,progressive=False)
           PYIMG
           python3 scripts/build_premium_pdfs.py
+          python3 scripts/build_v4_catalog.py
 
       - name: Validate public site
         shell: bash
@@ -100,11 +99,12 @@ jobs:
           test -s assets/transporte-v2.jpg
           test -s assets/saude-real.jpg
           test -s assets/defesa-civil-real.jpg
-          test -s assets/ecossistema-urban-brain.jpg
-          test -s assets/gis-operacional-urban-brain.jpg
+          test -s assets/ecossistema-urban-brain.svg
+          test -s assets/gis-operacional-urban-brain.svg
           file assets/hero-loop.mp4 | grep -Eiq 'ISO Media|MP4|MPEG'
           test "$(stat -c%s assets/hero-loop.mp4)" -lt 5000000
           test -s URBAN-BRAIN-Apresentacao-Executiva.pdf
+          test "$(stat -c%s URBAN-BRAIN-Apresentacao-Executiva.pdf)" -gt 300000
           test -s datasheets/cco-seguranca.pdf
           test -s datasheets/educacao-escolas.pdf
           test -s datasheets/transporte-publico.pdf
@@ -115,10 +115,17 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from html.parser import HTMLParser
+          import xml.etree.ElementTree as ET
           class P(HTMLParser): pass
           for f in [Path('index.html'), *Path('modulos').glob('*.html')]:
               P().feed(f.read_text(encoding='utf-8'))
-          print('HTML parse OK')
+          ET.parse('assets/ecossistema-urban-brain.svg')
+          ET.parse('assets/gis-operacional-urban-brain.svg')
+          html=Path('index.html').read_text(encoding='utf-8')
+          assert 'ecossistema-urban-brain.svg' in html
+          assert 'gis-operacional-urban-brain.svg' in html
+          assert 'Catálogo técnico-comercial completo' in html
+          print('V4 HTML/SVG validation OK')
           PY
 
       - name: Assemble public artifact
@@ -133,8 +140,8 @@ jobs:
           cp assets/styles.css assets/script.js assets/urban-brain-wordmark.jpg \
              assets/hero-real.jpg assets/hero-loop.mp4 assets/cco-final.jpg \
              assets/educacao-final-v3.jpg assets/transporte-v2.jpg assets/saude-real.jpg \
-             assets/defesa-civil-real.jpg assets/ecossistema-urban-brain.jpg \
-             assets/gis-operacional-urban-brain.jpg _site/assets/
+             assets/defesa-civil-real.jpg assets/ecossistema-urban-brain.svg \
+             assets/gis-operacional-urban-brain.svg _site/assets/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
