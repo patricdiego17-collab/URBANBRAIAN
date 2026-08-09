@@ -28,7 +28,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar -xzf deploy/v3-text.tar.gz
+          cat deploy/v3-text-b64/*.txt | tr -d '\n' | base64 -d > /tmp/v3-text.tar.gz
+          echo '88114492c1e773be2100db036ca0115ef073f29c18752446fb72c774f6fd4256  /tmp/v3-text.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/v3-text.tar.gz
 
       - name: Prepare local media
         shell: bash
