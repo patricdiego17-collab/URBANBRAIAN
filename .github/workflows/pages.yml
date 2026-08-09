@@ -38,6 +38,10 @@ jobs:
           tar -xzf /tmp/v5-payload.tar.gz
           python3 scripts/apply_v5_patch.py
 
+          echo '4b3dcb7a5bdf2ed2c61607a680b5c5cc40a44710dfba88e613f89e36fb86d507  deploy/v6-payload.tar.gz' | sha256sum -c -
+          tar -xzf deploy/v6-payload.tar.gz
+          python3 scripts/apply_v6_patch.py
+
       - name: Prepare media and technical documents
         shell: bash
         run: |
@@ -45,7 +49,7 @@ jobs:
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
 
-          # External sources are used only in CI. Public pages receive same-origin local files.
+          # External providers are accessed only by GitHub Actions; public pages receive same-origin files.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
             -o assets/hero-real.jpg
@@ -71,7 +75,6 @@ jobs:
             'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' \
             -o assets/defesa-civil-real.jpg
 
-          # Approved CCO/Education media are reconstructed byte-for-byte.
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt \
               assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
@@ -86,8 +89,6 @@ jobs:
           from PIL import Image, ImageOps, ImageFilter
           from pathlib import Path
           A=Path('assets')
-
-          # Normalize provider media first.
           for name in ['hero-real.jpg','transporte-v2.jpg','saude-real.jpg','defesa-civil-real.jpg']:
               p=A/name
               im=Image.open(p).convert('RGB')
@@ -114,9 +115,11 @@ jobs:
           portrait_comp('defesa-civil-real.jpg','defesa-display.jpg')
           PYIMG
 
+          # Keep the deep general manual, then replace each module PDF with the presentation-style V6 catalog.
           python3 scripts/build_v5_documents.py
+          python3 scripts/build_v6_presentations.py
 
-      - name: Validate V5 public site
+      - name: Validate V6 public site
         shell: bash
         run: |
           set -euo pipefail
@@ -139,6 +142,7 @@ jobs:
           ! grep -R -Eiq 'pexels\.com|pixabay\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos assets/styles.css assets/script.js
           ! grep -R -Eiq 'R3S|Patric Andrade|CITSUP' index.html modulos assets/styles.css assets/script.js
           ! grep -R -Eiq 'M[ÓO]DULO[[:space:]]+[0-9]+' index.html modulos
+          ! grep -R -Eq '<span>0[1-9]</span>' index.html modulos
 
           python3 - <<'PY'
           from pathlib import Path
@@ -146,6 +150,7 @@ jobs:
           import xml.etree.ElementTree as ET
           from PIL import Image
           from pypdf import PdfReader
+          import re
 
           class P(HTMLParser): pass
           public=[Path('index.html'), *Path('modulos').glob('*.html')]
@@ -155,12 +160,15 @@ jobs:
           ET.parse('assets/gis-operacional-urban-brain.svg')
 
           html=Path('index.html').read_text(encoding='utf-8')
+          css=Path('assets/styles.css').read_text(encoding='utf-8')
           assert 'Manual técnico completo da plataforma' in html
-          assert 'URBAN-BRAIN-Manual-Tecnico-Geral.pdf' in html
+          assert 'Apresentação técnica' in html
+          assert 'object-fit:contain!important' in css
           for f in Path('modulos').glob('*.html'):
               txt=f.read_text(encoding='utf-8')
               assert 'Características da solução' in txt
               assert 'Especificações consolidadas' in txt
+              assert 'Baixar Apresentação Técnica (PDF)' in txt
 
           for name in ['cco-display.jpg','educacao-display.jpg','transporte-display.jpg','saude-display.jpg','defesa-display.jpg']:
               im=Image.open(Path('assets')/name); im.load()
@@ -170,8 +178,13 @@ jobs:
           assert len(manual.pages)>=50, len(manual.pages)
           for f in ['cco-seguranca','educacao-escolas','transporte-publico','saude-digital','telegestao-defesa-civil']:
               r=PdfReader(f'datasheets/{f}.pdf')
-              assert len(r.pages)>=6, (f,len(r.pages))
-          print('V5 validation OK:',len(manual.pages),'manual pages; 6+ pages per datasheet; 1600x900 display images')
+              assert len(r.pages)==9, (f,len(r.pages))
+              mb=r.pages[0].mediabox
+              assert float(mb.width)>float(mb.height), f
+              first=(r.pages[0].extract_text() or '').upper()
+              assert 'APRESENTAÇÃO TÉCNICA' in first, (f,first[:200])
+              assert not re.search(r'M[ÓO]DULO\s+0?\d', first), (f,first[:200])
+          print('V6 validation OK:',len(manual.pages),'manual pages; 9-slide presentation per module; GIS contained')
           PY
 
       - name: Assemble public artifact
