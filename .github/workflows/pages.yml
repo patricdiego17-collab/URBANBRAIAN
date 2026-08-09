@@ -42,7 +42,8 @@ jobs:
           tar -xzf deploy/v6-payload.tar.gz
           python3 scripts/apply_v6_patch.py
 
-          cat deploy/hostgator-preview/*.txt | tr -d '\n' | base64 -d > /tmp/hostgator-text.tar.gz
+          cat deploy/hostgator-preview-v2/*.txt | tr -d '\n' | base64 -d > /tmp/hostgator-text.tar.gz
+          echo '8851e30c23ea0cd7bb5251527bbd79fcc5defb7330502f6be66bbf4e8c1d2ca0  /tmp/hostgator-text.tar.gz' | sha256sum -c -
           gzip -t /tmp/hostgator-text.tar.gz
           tar -xzf /tmp/hostgator-text.tar.gz
           test -s index.html
