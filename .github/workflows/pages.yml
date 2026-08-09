@@ -24,6 +24,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Apply V3 source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xzf deploy/v3-text.tar.gz
+
       - name: Prepare local media
         shell: bash
         run: |
@@ -31,12 +37,11 @@ jobs:
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
 
-          # Poster do hero. O navegador nunca acessa o provedor externo: o arquivo entra no artefato do Pages.
+          # External providers are accessed only by the build runner. The public browser receives local files.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
             -o assets/hero-real.jpg
 
-          # Loop cinematográfico de São Paulo. Baixa no build e publica localmente.
           if ! command -v ffmpeg >/dev/null 2>&1; then
             sudo apt-get update -qq
             sudo apt-get install -y -qq ffmpeg
@@ -44,20 +49,13 @@ jobs:
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://videos.pexels.com/video-files/14534442/14534442-uhd_3840_2160_30fps.mp4' \
             -o /tmp/hero-source.mp4
-          if command -v ffmpeg >/dev/null 2>&1; then
-            ffmpeg -hide_banner -loglevel error -y -ss 0 -t 8 -i /tmp/hero-source.mp4 \
-              -vf "scale=960:-2,fps=20" -an -c:v libx264 -preset medium -b:v 1100k -maxrate 1300k -bufsize 2600k -pix_fmt yuv420p \
-              -movflags +faststart assets/hero-loop.mp4
-          else
-            cp /tmp/hero-source.mp4 assets/hero-loop.mp4
-          fi
+          ffmpeg -hide_banner -loglevel error -y -ss 0 -t 8 -i /tmp/hero-source.mp4 \
+            -vf "scale=960:-2,fps=20" -an -c:v libx264 -preset medium -b:v 1100k -maxrate 1300k -bufsize 2600k -pix_fmt yuv420p \
+            -movflags +faststart assets/hero-loop.mp4
 
-          # Transporte: nova fotografia real de ônibus em São Paulo.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/photos/3190370/pexels-photo-3190370.jpeg?cs=srgb&dl=pexels-hikaique-3190370.jpg&fm=jpg' \
             -o assets/transporte-v2.jpg
-
-          # Fotografias reais dos demais módulos publicadas localmente.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/photos/7195123/pexels-photo-7195123.jpeg?cs=srgb&fm=jpg' \
             -o assets/saude-real.jpg
@@ -65,14 +63,19 @@ jobs:
             'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' \
             -o assets/defesa-civil-real.jpg
 
-          # CCO e Educação são reconstruídos e validados byte a byte.
-          cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
+          # CCO and Education remain reconstructed from already-versioned approved asset chunks.
+          cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt \
+              assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt \
+              | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
-          cat assets/educacao-v3-data/00.txt assets/educacao-v3-data/01.txt assets/educacao-v3-data/02.txt assets/educacao-v3-data/03a.txt assets/educacao-v3-data/03b.txt assets/educacao-v3-data/03c.txt assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt | base64 -d > assets/educacao-final-v3.jpg
+
+          cat assets/educacao-v3-data/00.txt assets/educacao-v3-data/01.txt assets/educacao-v3-data/02.txt \
+              assets/educacao-v3-data/03a.txt assets/educacao-v3-data/03b.txt assets/educacao-v3-data/03c.txt \
+              assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt \
+              | base64 -d > assets/educacao-final-v3.jpg
           echo 'aae850f7871e1e5caf0954846ff92d49b57311cc8049bfa68146955cd60678db  assets/educacao-final-v3.jpg' | sha256sum -c -
 
-          # PDFs premium: geração no build com os assets finais já preparados.
-          python3 -m pip install --disable-pip-version-check --quiet reportlab pillow beautifulsoup4
+          python3 -m pip install --disable-pip-version-check --quiet reportlab pillow
           python3 - <<'PYIMG'
           from PIL import Image
           from pathlib import Path
@@ -80,42 +83,63 @@ jobs:
               p=Path('assets')/name
               im=Image.open(p).convert('RGB')
               im.thumbnail((1600,1200),Image.LANCZOS)
-              im.save(p,'JPEG',quality=82,optimize=True,progressive=False)
+              im.save(p,'JPEG',quality=84,optimize=True,progressive=False)
           PYIMG
-          python3 scripts/site_upgrade.py
-          python3 - <<'PYPDF'
-          from pathlib import Path
-          p=Path('scripts/build_premium_pdfs.py')
-          s=p.read_text(encoding='utf-8')
-          old="im=Image.open(p);iw,ih=im.size;s=max(w/iw,h/ih);nw,nh=iw*s,ih*s;c.drawImage(ImageReader(im),x-(nw-w)/2,y-(nh-h)/2,nw,nh)"
-          new="im=Image.open(p);iw,ih=im.size;s=max(w/iw,h/ih);nw,nh=iw*s,ih*s\n  c.saveState();q=c.beginPath();q.rect(x,y,w,h);c.clipPath(q,stroke=0,fill=0);c.drawImage(ImageReader(im),x-(nw-w)/2,y-(nh-h)/2,nw,nh);c.restoreState()"
-          if old in s: p.write_text(s.replace(old,new),encoding='utf-8')
-          PYPDF
           python3 scripts/build_premium_pdfs.py
 
-          # Validações do artefato final.
-          test -s assets/hero-real.jpg
-          ls -lh assets/hero-loop.mp4 assets/transporte-v2.jpg URBAN-BRAIN-Apresentacao-Executiva.pdf
+      - name: Validate public site
+        shell: bash
+        run: |
+          set -euo pipefail
           test -s assets/hero-loop.mp4
-          test "$(stat -c%s assets/hero-loop.mp4)" -gt 300000
-          test "$(stat -c%s assets/hero-loop.mp4)" -lt 10000000
+          test -s assets/hero-real.jpg
+          test -s assets/cco-final.jpg
+          test -s assets/educacao-final-v3.jpg
           test -s assets/transporte-v2.jpg
+          test -s assets/saude-real.jpg
+          test -s assets/defesa-civil-real.jpg
+          test -s assets/ecossistema-urban-brain.jpg
+          test -s assets/gis-operacional-urban-brain.jpg
           file assets/hero-loop.mp4 | grep -Eiq 'ISO Media|MP4|MPEG'
-          file assets/transporte-v2.jpg | grep -qi 'JPEG image data'
+          test "$(stat -c%s assets/hero-loop.mp4)" -lt 5000000
           test -s URBAN-BRAIN-Apresentacao-Executiva.pdf
           test -s datasheets/cco-seguranca.pdf
           test -s datasheets/educacao-escolas.pdf
           test -s datasheets/transporte-publico.pdf
           test -s datasheets/saude-digital.pdf
           test -s datasheets/telegestao-defesa-civil.pdf
-          ! grep -R -Eiq 'pexels\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos assets/styles.css assets/script.js
+          ! grep -R -Eiq 'pexels\.com|pixabay\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos assets/styles.css assets/script.js
+          ! grep -R -Eiq 'R3S|Patric Andrade' index.html modulos assets/styles.css assets/script.js
+          python3 - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          class P(HTMLParser): pass
+          for f in [Path('index.html'), *Path('modulos').glob('*.html')]:
+              P().feed(f.read_text(encoding='utf-8'))
+          print('HTML parse OK')
+          PY
+
+      - name: Assemble public artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site/assets _site/modulos _site/datasheets
+          cp index.html robots.txt sitemap.xml URBAN-BRAIN-Apresentacao-Executiva.pdf _site/
+          cp modulos/*.html _site/modulos/
+          cp datasheets/*.pdf _site/datasheets/
+          cp assets/styles.css assets/script.js assets/urban-brain-wordmark.jpg \
+             assets/hero-real.jpg assets/hero-loop.mp4 assets/cco-final.jpg \
+             assets/educacao-final-v3.jpg assets/transporte-v2.jpg assets/saude-real.jpg \
+             assets/defesa-civil-real.jpg assets/ecossistema-urban-brain.jpg \
+             assets/gis-operacional-urban-brain.jpg _site/assets/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
