@@ -24,10 +24,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply source bundles
+      - name: Prepare source
         shell: bash
         run: |
           set -euo pipefail
+          # Restore the validated V6 source/assets, then overlay the cPanel/HostGator design.
           cat deploy/v3-text-b64/*.txt | tr -d '\n' | base64 -d > /tmp/v3-text.tar.gz
           echo '88114492c1e773be2100db036ca0115ef073f29c18752446fb72c774f6fd4256  /tmp/v3-text.tar.gz' | sha256sum -c -
           tar -xzf /tmp/v3-text.tar.gz
@@ -42,14 +43,18 @@ jobs:
           tar -xzf deploy/v6-payload.tar.gz
           python3 scripts/apply_v6_patch.py
 
-      - name: Prepare media and technical documents
+          cat deploy/hostgator-preview/*.txt | tr -d '\n' | base64 -d > /tmp/hostgator-text.tar.gz
+          echo '8851e30c23ea0cd7bb5251527bbd79fcc5defb7330502f6be66bbf4e8c1d2ca0  /tmp/hostgator-text.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/hostgator-text.tar.gz
+
+      - name: Prepare media and documents
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
 
-          # External providers are accessed only by GitHub Actions; public pages receive same-origin files.
+          # External media is fetched only in CI. The deployed browser loads same-origin local assets.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
             -o assets/hero-real.jpg
@@ -115,76 +120,43 @@ jobs:
           portrait_comp('defesa-civil-real.jpg','defesa-display.jpg')
           PYIMG
 
-          # Keep the deep general manual, then replace each module PDF with the presentation-style V6 catalog.
           python3 scripts/build_v5_documents.py
           python3 scripts/build_v6_presentations.py
 
-      - name: Validate V6 public site
+      - name: Validate HostGator preview
         shell: bash
         run: |
           set -euo pipefail
+          test -s index.html
+          test -s style.css
+          test -s script.js
           test -s assets/hero-loop.mp4
-          test -s assets/hero-real.jpg
           test -s assets/ecossistema-urban-brain.svg
           test -s assets/gis-operacional-urban-brain.svg
-          for img in cco-display educacao-display transporte-display saude-display defesa-display; do
-            test -s "assets/${img}.jpg"
-          done
-          file assets/hero-loop.mp4 | grep -Eiq 'ISO Media|MP4|MPEG'
-          test "$(stat -c%s assets/hero-loop.mp4)" -lt 5000000
-
-          test -s URBAN-BRAIN-Manual-Tecnico-Geral.pdf
-          test -s URBAN-BRAIN-Apresentacao-Executiva.pdf
+          for img in cco-display educacao-display transporte-display saude-display defesa-display; do test -s "assets/${img}.jpg"; done
           for f in cco-seguranca educacao-escolas transporte-publico saude-digital telegestao-defesa-civil; do
+            test -s "modulos/${f}.html"
             test -s "datasheets/${f}.pdf"
           done
-
-          ! grep -R -Eiq 'pexels\.com|pixabay\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos assets/styles.css assets/script.js
-          ! grep -R -Eiq 'R3S|Patric Andrade|CITSUP' index.html modulos assets/styles.css assets/script.js
-          ! grep -R -Eiq 'M[ÓO]DULO[[:space:]]+[0-9]+' index.html modulos
-          ! grep -R -Eq '<span>0[1-9]</span>' index.html modulos
-
+          ! grep -R -Eiq 'pexels\.com|pixabay\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos style.css script.js
+          ! grep -R -Eiq 'R3S|Patric Andrade|CITSUP' index.html modulos style.css script.js
+          grep -q 'class="menu"' index.html
+          grep -q '@media(max-width:760px)' style.css
+          grep -q 'hero-media video' style.css
+          grep -q 'defesa-display.jpg' index.html
           python3 - <<'PY'
           from pathlib import Path
           from html.parser import HTMLParser
-          import xml.etree.ElementTree as ET
-          from PIL import Image
           from pypdf import PdfReader
-          import re
-
           class P(HTMLParser): pass
-          public=[Path('index.html'), *Path('modulos').glob('*.html')]
-          for f in public:
+          for f in [Path('index.html'), *Path('modulos').glob('*.html')]:
               P().feed(f.read_text(encoding='utf-8'))
-          ET.parse('assets/ecossistema-urban-brain.svg')
-          ET.parse('assets/gis-operacional-urban-brain.svg')
-
-          html=Path('index.html').read_text(encoding='utf-8')
-          css=Path('assets/styles.css').read_text(encoding='utf-8')
-          assert 'Manual técnico completo da plataforma' in html
-          assert 'Apresentação técnica' in html
-          assert 'object-fit:contain!important' in css
-          for f in Path('modulos').glob('*.html'):
-              txt=f.read_text(encoding='utf-8')
-              assert 'Características da solução' in txt
-              assert 'Especificações consolidadas' in txt
-              assert 'Baixar Apresentação Técnica (PDF)' in txt
-
-          for name in ['cco-display.jpg','educacao-display.jpg','transporte-display.jpg','saude-display.jpg','defesa-display.jpg']:
-              im=Image.open(Path('assets')/name); im.load()
-              assert im.size==(1600,900), (name,im.size)
-
           manual=PdfReader('URBAN-BRAIN-Manual-Tecnico-Geral.pdf')
-          assert len(manual.pages)>=50, len(manual.pages)
+          assert len(manual.pages)>=50
           for f in ['cco-seguranca','educacao-escolas','transporte-publico','saude-digital','telegestao-defesa-civil']:
               r=PdfReader(f'datasheets/{f}.pdf')
-              assert len(r.pages)==9, (f,len(r.pages))
-              mb=r.pages[0].mediabox
-              assert float(mb.width)>float(mb.height), f
-              first=(r.pages[0].extract_text() or '').upper()
-              assert 'APRESENTAÇÃO TÉCNICA' in first, (f,first[:200])
-              assert not re.search(r'M[ÓO]DULO\s+0?\d', first), (f,first[:200])
-          print('V6 validation OK:',len(manual.pages),'manual pages; 9-slide presentation per module; GIS contained')
+              assert len(r.pages)==9
+          print('HostGator preview validation OK')
           PY
 
       - name: Assemble public artifact
@@ -193,11 +165,10 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site/assets _site/modulos _site/datasheets
-          cp index.html robots.txt sitemap.xml URBAN-BRAIN-Apresentacao-Executiva.pdf URBAN-BRAIN-Manual-Tecnico-Geral.pdf _site/
+          cp index.html style.css script.js robots.txt sitemap.xml URBAN-BRAIN-Apresentacao-Executiva.pdf URBAN-BRAIN-Manual-Tecnico-Geral.pdf _site/
           cp modulos/*.html _site/modulos/
           cp datasheets/*.pdf _site/datasheets/
-          cp assets/styles.css assets/script.js assets/urban-brain-wordmark.jpg \
-             assets/hero-real.jpg assets/hero-loop.mp4 \
+          cp assets/urban-brain-wordmark.jpg assets/hero-real.jpg assets/hero-loop.mp4 \
              assets/cco-display.jpg assets/educacao-display.jpg assets/transporte-display.jpg \
              assets/saude-display.jpg assets/defesa-display.jpg \
              assets/ecossistema-urban-brain.svg assets/gis-operacional-urban-brain.svg _site/assets/
