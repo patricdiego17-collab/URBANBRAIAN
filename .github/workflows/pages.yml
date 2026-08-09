@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply V3 source bundle
+      - name: Apply source bundles
         shell: bash
         run: |
           set -euo pipefail
@@ -33,14 +33,19 @@ jobs:
           tar -xzf /tmp/v3-text.tar.gz
           python3 scripts/apply_v4_patch.py
 
-      - name: Prepare local media and documents
+          cat deploy/v5-payload/*.txt | tr -d '\n' | base64 -d > /tmp/v5-payload.tar.gz
+          echo '03b7422aad7eb7bca8b31e2e3bbcc9f1316a74321a33e86651c0ffabbc97a84f  /tmp/v5-payload.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/v5-payload.tar.gz
+          python3 scripts/apply_v5_patch.py
+
+      - name: Prepare media and technical documents
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p assets datasheets
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
 
-          # External providers are accessed only by the build runner. Public pages receive same-origin local files.
+          # External sources are used only in CI. Public pages receive same-origin local files.
           curl -L --fail --retry 3 --retry-delay 2 -A "$UA" \
             'https://images.pexels.com/videos/30482723/pexels-photo-30482723.jpeg?auto=compress&dpr=1&h=1080&w=1920' \
             -o assets/hero-real.jpg
@@ -66,6 +71,7 @@ jobs:
             'https://images.pexels.com/photos/11340705/pexels-photo-11340705.jpeg?cs=srgb&fm=jpg' \
             -o assets/defesa-civil-real.jpg
 
+          # Approved CCO/Education media are reconstructed byte-for-byte.
           cat assets/cco-data/00.txt assets/cco-data/01.txt assets/cco-data/02.txt assets/cco-data/03.txt \
               assets/cco-data/04.txt assets/cco-data/05.txt assets/cco-data/06.txt | base64 -d > assets/cco-final.jpg
           echo '652ae853b0c2ecdd859a823b1eb9f883978c977a22014c6c54685b0234fc1288  assets/cco-final.jpg' | sha256sum -c -
@@ -75,57 +81,97 @@ jobs:
               assets/educacao-v3-data/04.txt assets/educacao-v3-data/05.txt assets/educacao-v3-data/06.txt | base64 -d > assets/educacao-final-v3.jpg
           echo 'aae850f7871e1e5caf0954846ff92d49b57311cc8049bfa68146955cd60678db  assets/educacao-final-v3.jpg' | sha256sum -c -
 
-          python3 -m pip install --disable-pip-version-check --quiet reportlab pillow
+          python3 -m pip install --disable-pip-version-check --quiet reportlab pillow pypdf
           python3 - <<'PYIMG'
-          from PIL import Image
+          from PIL import Image, ImageOps, ImageFilter
           from pathlib import Path
-          for name in ['hero-real.jpg','transporte-v2.jpg','saude-real.jpg','defesa-civil-real.jpg']:
-              p=Path('assets')/name
-              im=Image.open(p).convert('RGB')
-              im.thumbnail((1600,1200),Image.LANCZOS)
-              im.save(p,'JPEG',quality=84,optimize=True,progressive=False)
-          PYIMG
-          python3 scripts/build_premium_pdfs.py
-          python3 scripts/build_v4_catalog.py
+          A=Path('assets')
 
-      - name: Validate public site
+          # Normalize provider media first.
+          for name in ['hero-real.jpg','transporte-v2.jpg','saude-real.jpg','defesa-civil-real.jpg']:
+              p=A/name
+              im=Image.open(p).convert('RGB')
+              im.thumbnail((1800,1400),Image.Resampling.LANCZOS)
+              im.save(p,'JPEG',quality=86,optimize=True,progressive=False)
+
+          def fit(src,dst,centering=(.5,.5)):
+              im=Image.open(A/src).convert('RGB')
+              out=ImageOps.fit(im,(1600,900),Image.Resampling.LANCZOS,centering=centering)
+              out.save(A/dst,'JPEG',quality=88,optimize=True,progressive=False)
+
+          def portrait_comp(src,dst,focus=(.5,.5)):
+              im=Image.open(A/src).convert('RGB')
+              bg=ImageOps.fit(im,(1600,900),Image.Resampling.LANCZOS,centering=focus).filter(ImageFilter.GaussianBlur(28))
+              bg=Image.blend(bg,Image.new('RGB',bg.size,(0,0,0)),.18)
+              fg=im.copy(); fg.thumbnail((1550,850),Image.Resampling.LANCZOS)
+              bg.paste(fg,((1600-fg.width)//2,(900-fg.height)//2))
+              bg.save(A/dst,'JPEG',quality=88,optimize=True,progressive=False)
+
+          fit('cco-final.jpg','cco-display.jpg')
+          fit('educacao-final-v3.jpg','educacao-display.jpg',(.48,.5))
+          fit('transporte-v2.jpg','transporte-display.jpg',(.52,.48))
+          fit('saude-real.jpg','saude-display.jpg',(.55,.5))
+          portrait_comp('defesa-civil-real.jpg','defesa-display.jpg')
+          PYIMG
+
+          python3 scripts/build_v5_documents.py
+
+      - name: Validate V5 public site
         shell: bash
         run: |
           set -euo pipefail
           test -s assets/hero-loop.mp4
           test -s assets/hero-real.jpg
-          test -s assets/cco-final.jpg
-          test -s assets/educacao-final-v3.jpg
-          test -s assets/transporte-v2.jpg
-          test -s assets/saude-real.jpg
-          test -s assets/defesa-civil-real.jpg
           test -s assets/ecossistema-urban-brain.svg
           test -s assets/gis-operacional-urban-brain.svg
+          for img in cco-display educacao-display transporte-display saude-display defesa-display; do
+            test -s "assets/${img}.jpg"
+          done
           file assets/hero-loop.mp4 | grep -Eiq 'ISO Media|MP4|MPEG'
           test "$(stat -c%s assets/hero-loop.mp4)" -lt 5000000
+
+          test -s URBAN-BRAIN-Manual-Tecnico-Geral.pdf
           test -s URBAN-BRAIN-Apresentacao-Executiva.pdf
-          test "$(stat -c%s URBAN-BRAIN-Apresentacao-Executiva.pdf)" -gt 300000
-          test -s datasheets/cco-seguranca.pdf
-          test -s datasheets/educacao-escolas.pdf
-          test -s datasheets/transporte-publico.pdf
-          test -s datasheets/saude-digital.pdf
-          test -s datasheets/telegestao-defesa-civil.pdf
+          for f in cco-seguranca educacao-escolas transporte-publico saude-digital telegestao-defesa-civil; do
+            test -s "datasheets/${f}.pdf"
+          done
+
           ! grep -R -Eiq 'pexels\.com|pixabay\.com|fonts\.googleapis\.com|fonts\.gstatic\.com' index.html modulos assets/styles.css assets/script.js
-          ! grep -R -Eiq 'R3S|Patric Andrade' index.html modulos assets/styles.css assets/script.js
+          ! grep -R -Eiq 'R3S|Patric Andrade|CITSUP' index.html modulos assets/styles.css assets/script.js
+          ! grep -R -Eiq 'M[ÓO]DULO[[:space:]]+[0-9]+' index.html modulos
+
           python3 - <<'PY'
           from pathlib import Path
           from html.parser import HTMLParser
           import xml.etree.ElementTree as ET
+          from PIL import Image
+          from pypdf import PdfReader
+
           class P(HTMLParser): pass
-          for f in [Path('index.html'), *Path('modulos').glob('*.html')]:
+          public=[Path('index.html'), *Path('modulos').glob('*.html')]
+          for f in public:
               P().feed(f.read_text(encoding='utf-8'))
           ET.parse('assets/ecossistema-urban-brain.svg')
           ET.parse('assets/gis-operacional-urban-brain.svg')
+
           html=Path('index.html').read_text(encoding='utf-8')
-          assert 'ecossistema-urban-brain.svg' in html
-          assert 'gis-operacional-urban-brain.svg' in html
-          assert 'Catálogo técnico-comercial completo' in html
-          print('V4 HTML/SVG validation OK')
+          assert 'Manual técnico completo da plataforma' in html
+          assert 'URBAN-BRAIN-Manual-Tecnico-Geral.pdf' in html
+          for f in Path('modulos').glob('*.html'):
+              txt=f.read_text(encoding='utf-8')
+              assert 'Características da solução' in txt
+              assert 'Especificações consolidadas' in txt
+
+          for name in ['cco-display.jpg','educacao-display.jpg','transporte-display.jpg','saude-display.jpg','defesa-display.jpg']:
+              im=Image.open(Path('assets')/name); im.load()
+              assert im.size==(1600,900), (name,im.size)
+
+          manual=PdfReader('URBAN-BRAIN-Manual-Tecnico-Geral.pdf')
+          assert len(manual.pages)>=50, len(manual.pages)
+          for f in ['cco-seguranca','educacao-escolas','transporte-publico','saude-digital','telegestao-defesa-civil']:
+              r=PdfReader(f'datasheets/{f}.pdf')
+              assert len(r.pages)>=6, (f,len(r.pages))
+          print('V5 validation OK:',len(manual.pages),'manual pages; 6+ pages per datasheet; 1600x900 display images')
           PY
 
       - name: Assemble public artifact
@@ -134,14 +180,14 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site/assets _site/modulos _site/datasheets
-          cp index.html robots.txt sitemap.xml URBAN-BRAIN-Apresentacao-Executiva.pdf _site/
+          cp index.html robots.txt sitemap.xml URBAN-BRAIN-Apresentacao-Executiva.pdf URBAN-BRAIN-Manual-Tecnico-Geral.pdf _site/
           cp modulos/*.html _site/modulos/
           cp datasheets/*.pdf _site/datasheets/
           cp assets/styles.css assets/script.js assets/urban-brain-wordmark.jpg \
-             assets/hero-real.jpg assets/hero-loop.mp4 assets/cco-final.jpg \
-             assets/educacao-final-v3.jpg assets/transporte-v2.jpg assets/saude-real.jpg \
-             assets/defesa-civil-real.jpg assets/ecossistema-urban-brain.svg \
-             assets/gis-operacional-urban-brain.svg _site/assets/
+             assets/hero-real.jpg assets/hero-loop.mp4 \
+             assets/cco-display.jpg assets/educacao-display.jpg assets/transporte-display.jpg \
+             assets/saude-display.jpg assets/defesa-display.jpg \
+             assets/ecossistema-urban-brain.svg assets/gis-operacional-urban-brain.svg _site/assets/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
